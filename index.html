@@ -28,7 +28,6 @@
         <li>もう合算したいリザルトがなければ<b>[集計する]</b>ボタンをクリックする。</li>
         <li><b>[コピー]</b>ボタンをクリックし、表計算ソフトに貼り付ける。</li>
     </ol>
-
     <textarea id="inputText" placeholder="ここに結果をペースト"></textarea>
     <br>
     <button onclick="parseResults()">解析する</button>
@@ -41,13 +40,14 @@
     <h2>CSV Aggregator</h2>
     <div id="inputAreas"></div>
     <button onclick="addTextArea()">テキストボックスを追加</button>
+    <button onclick="clearAllTextAreas()">ボックスを空にする</button>
     <button onclick="aggregateResults()">集計する</button>
     <br>
     <textarea id="aggregatedOutput" readonly placeholder="ここに集計結果が表示されます"></textarea>
     <br>
     <button onclick="copyToAggregatedOutputClipboard()">コピー</button>
-    スプレッドシートにペーストする際は、<b>[データ] -> [テキストを列に分割]</b> を忘れずに
-
+    <button onclick="clearAggregatedOutput()">クリア</button>
+    <br>スプレッドシートにペーストする際は、<b>[データ] -> [テキストを列に分割]</b> を忘れずに
 
     <script>
         // Challenge Results Parser
@@ -165,6 +165,10 @@
             inputAreas.appendChild(newTextArea);
         }
 
+        function clearAllTextAreas() {
+            document.getElementById('inputAreas').innerHTML = '';
+        }
+
         function aggregateResults() {
             const textareas = document.querySelectorAll('.inputText');
             let dataframes = [];
@@ -248,6 +252,10 @@
             const aggregatedOutput = document.getElementById('aggregatedOutput');
             aggregatedOutput.select();
             document.execCommand('copy');
+        }
+
+        function clearAggregatedOutput() {
+            document.getElementById('aggregatedOutput').value = '';
         }
     </script>
 </body>
