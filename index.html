@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Challenge Results Parser and Aggregator</title>
+    <style>
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Challenge Results Parser and Aggregator</h1>
+
+    <h2>Challenge Results Parser</h2>
+    複数のChallengeの結果をコピペだけで合算するページです。<br>
+    ※英語バージョンのみ対応<br>
+    <ol>
+        <li><font color="red">(SHOW MORE)ボタンを押し忘れしていないか確認！！！</font></li>
+        <li>キー Ctrl + A からの Ctrl + C ですべてコピー (Macはcommandキー)</li>
+        <li>直下のボックスにペースト、からの<b>[解析]</b>ボタンをクリックする。</li>
+        <li>CSV Aggregatorにcsvデータ（カンマ区切りのリザルト）が入力されているのが確認する。</li>
+        <li><b>他のリザルトと合算したい場合は[次のデータへ]</b>をクリックする。以降繰り返し。</li>
+        <li>もう合算したいリザルトがなければ<b>[集計する]</b>ボタンをクリックする。</li>
+        <li><b>[コピー]</b>ボタンをクリックし、表計算ソフトに貼り付ける。</li>
+    </ol>
+
+    <textarea id="inputText" placeholder="ここに結果をペースト"></textarea>
+    <br>
+    <button onclick="parseResults()">解析する</button>
+    <br>
+    <textarea id="parsedOutput" readonly placeholder="ここにCSVが表示されます"></textarea>
+    <br>
+    <button onclick="copyToParsedOutputClipboard()">コピー</button>
+    <button onclick="nextData()">次のデータへ</button>
+
+    <h2>CSV Aggregator</h2>
+    <div id="inputAreas"></div>
+    <button onclick="addTextArea()">テキストボックスを追加</button>
+    <button onclick="aggregateResults()">集計する</button>
+    <br>
+    <textarea id="aggregatedOutput" readonly placeholder="ここに集計結果が表示されます"></textarea>
+    <br>
+    <button onclick="copyToAggregatedOutputClipboard()">コピー</button>
+    スプレッドシートにペーストする際は、<b>[データ] -> [テキストを列に分割]</b> を忘れずに
+
+
+    <script>
+        // Challenge Results Parser
+        function parseResults() {
+            const inputText = document.getElementById('inputText').value;
+            const totalIndex = inputText.indexOf('Round 3\nRound 4\nRound 5\nTotal');
+            const challengeIndex = inputText.indexOf('CHALLENGE A FRIEND\n\nFRIENDS');
+            let content = inputText;
+
+            if (totalIndex !== -1) {
+                content = content.substring(totalIndex);
+            }
+            if (challengeIndex !== -1) {
+                content = content.substring(0, challengeIndex);
+            }
+
+            const sections = content.split(/\d+\.\n/).slice(1);
+            let results = {};
+
+            sections.forEach(section => {
+                const parsedData = parseSection(section);
+                results[parsedData.name] = parsedData.data;
+            });
+
+            generateParsedCSV(results);
+        }
+
+        function parseSection(section) {
+            const lines = section.trim().split('\n');
+            const name = lines[0];
+            let pts = [];
+            let distance = [];
+            let time = [];
+            let totals = {};
+
+            lines.slice(1).forEach(line => {
+                const ptsMatch = line.match(/([\d,]+) pts/);
+                const kmMatch = line.match(/([\d.]+) km|([\d.]+) m/);
+                const timeMatch = line.match(/(\d+ min(?:, \d+ sec)?)|\d+ sec/);
+
+                if (ptsMatch) {
+                    if (pts.length < 5) {
+                        pts.push(parseInt(ptsMatch[1].replace(",", "")));
+                    } else {
+                        totals["pts"] = parseInt(ptsMatch[1].replace(",", ""));
+                    }
+                }
+                if (kmMatch) {
+                    if (kmMatch[1]) {
+                        const km = parseFloat(kmMatch[0].replace(",", "").split(' ')[0]);
+                        if (distance.length < 5) {
+                            distance.push(`${km} km`);
+                        } else {
+                            totals["distance"] = `${km} km`;
+                        }
+                    }
+                    if (kmMatch[2]) {
+                        const m = parseFloat(kmMatch[0].replace(",", "").split(' ')[0]);
+                        if (distance.length < 5) {
+                            distance.push(`${m} m`);
+                        } else {
+                            totals["distance"] = `${m} m`;
+                        }
+                    }
+                }
+                if (timeMatch) {
+                    if (time.length < 5) {
+                        time.push(timeMatch[0]);
+                    } else {
+                        totals["time"] = timeMatch[0];
+                    }
+                }
+            });
+
+            return { name, data: { totals, pts, distance, time } };
+        }
+
+        function generateParsedCSV(results) {
+            let csvContent = 'Name,Total_Points,Total_Distance,Total_Time,1,2,3,4,5\n';
+
+            for (const [name, details] of Object.entries(results)) {
+                csvContent += `${name},${details.totals.pts},${details.totals.distance},${details.totals.time},${details.pts[0]},${details.pts[1]},${details.pts[2]},${details.pts[3]},${details.pts[4]}\n`;
+            }
+
+            document.getElementById('parsedOutput').value = csvContent;
+            addTextAreaWithContent(csvContent);
+        }
+
+        function copyToParsedOutputClipboard() {
+            const parsedOutput = document.getElementById('parsedOutput');
+            parsedOutput.select();
+            document.execCommand('copy');
+        }
+
+        function nextData() {
+            document.getElementById('inputText').value = '';
+            document.getElementById('parsedOutput').value = '';
+            document.getElementById('inputText').focus();
+        }
+
+        // CSV Aggregator
+        function addTextArea() {
+            const inputAreas = document.getElementById('inputAreas');
+            const newTextArea = document.createElement('textarea');
+            newTextArea.classList.add('inputText');
+            newTextArea.placeholder = "ここにCSVデータを入力";
+            inputAreas.appendChild(newTextArea);
+        }
+
+        function addTextAreaWithContent(content) {
+            const inputAreas = document.getElementById('inputAreas');
+            const newTextArea = document.createElement('textarea');
+            newTextArea.classList.add('inputText');
+            newTextArea.value = content;
+            inputAreas.appendChild(newTextArea);
+        }
+
+        function aggregateResults() {
+            const textareas = document.querySelectorAll('.inputText');
+            let dataframes = [];
+
+            textareas.forEach(textarea => {
+                const csvData = textarea.value;
+                const dataframe = csvToDataFrame(csvData);
+                if (dataframe) {
+                    dataframes.push(dataframe);
+                }
+            });
+
+            if (dataframes.length > 0) {
+                const results = aggregateData(dataframes);
+                const csvOutput = generateAggregatedCSV(results);
+                document.getElementById('aggregatedOutput').value = csvOutput;
+            }
+        }
+
+        function csvToDataFrame(csv) {
+            const lines = csv.trim().split('\n');
+            if (lines.length < 2) return null;
+
+            const headers = lines[0].split(',').map(header => header.trim());
+            const rows = lines.slice(1).map(line => line.split(',').map(cell => cell.trim()));
+
+            return rows.map(row => {
+                let obj = {};
+                row.forEach((cell, index) => {
+                    obj[headers[index]] = cell;
+                });
+                return obj;
+            });
+        }
+
+        function aggregateData(dataframes) {
+            let allNames = new Set();
+            dataframes.forEach(df => df.forEach(row => allNames.add(row.Name)));
+
+            let totalPointsDict = {};
+            let countDict = {};
+
+            allNames.forEach(name => {
+                let totalPoints = 0;
+                let count = 0;
+
+                dataframes.forEach(df => {
+                    df.forEach(row => {
+                        if (row.Name === name) {
+                            totalPoints += parseInt(row.Total_Points, 10);
+                            count++;
+                        }
+                    });
+                });
+
+                totalPointsDict[name] = totalPoints;
+                countDict[name] = count;
+            });
+
+            let averagePointsDict = {};
+            allNames.forEach(name => {
+                averagePointsDict[name] = totalPointsDict[name] / countDict[name];
+            });
+
+            return {
+                totalPointsDict,
+                averagePointsDict,
+                countDict
+            };
+        }
+
+        function generateAggregatedCSV(results) {
+            let csvContent = 'Name,Total_Points,Average_Points,Count\n';
+            for (let name in results.totalPointsDict) {
+                csvContent += `${name},${results.totalPointsDict[name]},${results.averagePointsDict[name].toFixed(2)},${results.countDict[name]}\n`;
+            }
+            return csvContent;
+        }
+
+        function copyToAggregatedOutputClipboard() {
+            const aggregatedOutput = document.getElementById('aggregatedOutput');
+            aggregatedOutput.select();
+            document.execCommand('copy');
+        }
+    </script>
+</body>
+</html>
